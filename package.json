@@ -1,0 +1,10 @@
+{
+  "name": "ace-lawncare-demo",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "dependencies": {
+    "dayjs": "^1.11.13",
+    "@vercel/kv": "^1.0.1"
+  }
+}
