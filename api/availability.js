@@ -2,9 +2,29 @@ import { auth, resolveCalendarId, isBusy, nextAlternatives } from "./lib/calenda
 
 import dayjs from "dayjs";
 
+async function readJson(req) {
+  try {
+    // If Retell sends JSON directly (already parsed)
+    if (req.body) {
+      if (typeof req.body === "string") return JSON.parse(req.body);
+      return req.body;
+    }
+
+    // Otherwise, manually read the stream
+    let raw = "";
+    for await (const chunk of req) {
+      raw += chunk;
+    }
+
+    return raw ? JSON.parse(raw) : {};
+  } catch (err) {
+    console.error("Error parsing JSON body:", err);
+    return {};
+  }
+}
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
-  const { service_list, address, requested_start, preferred_staff } = req.body || {};
+ const { service_list, address, requested_start, preferred_staff } = await readJson(req);
   
   // For now, fake a 9am slot the next day
   const slot = {
