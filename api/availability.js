@@ -24,7 +24,10 @@ async function readJson(req) {
 }
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).end();
- const { service_list, address, requested_start, preferred_staff } = await readJson(req);
+const payload = await readJson(req);
+const args = payload && typeof payload === "object" && payload.args ? payload.args : payload;
+const { service_list, address, requested_start, preferred_staff } = args || {};
+
   
   // For now, fake a 9am slot the next day
   const slot = {
