@@ -5,6 +5,7 @@
   "version": "1.0.0",
   "dependencies": {
     "dayjs": "^1.11.13",
+    "googleapis": "^140.0.0",
     "@vercel/kv": "^1.0.1"
   }
 }
