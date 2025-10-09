@@ -1,4 +1,4 @@
-import Retell from 'retell-sdk';
+import { RetellClient } from 'retell-sdk';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 console.log("API key loaded:", !!process.env.RETELL_API_KEY);
 
-  const client = new Retell({ apiKey: process.env.RETELL_API_KEY });
+  const client = new RetellClient({ apiKey: process.env.RETELL_API_KEY });
 
   try {
     const result = await client.phoneNumber.listPhoneNumbers();
