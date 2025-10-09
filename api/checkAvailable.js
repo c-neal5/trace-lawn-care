@@ -4,6 +4,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Only GET allowed' });
   }
+console.log("API key loaded:", !!process.env.RETELL_API_KEY);
 
   const client = new Retell({ apiKey: process.env.RETELL_API_KEY });
 
