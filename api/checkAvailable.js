@@ -1,56 +1,67 @@
 // /api/checkAvailable.js
+import { google } from "googleapis";
+
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ message: 'Only GET allowed' });
-  }
-
-  const key = process.env.RETELL_API_KEY;
-  if (!key) {
-    return res.status(500).json({ available: false, error: 'RETELL_API_KEY missing' });
-  }
-
-  const TRACE_NUMBER = '+14059146237'; // your Twilio number in E.164
-
   try {
-    const r = await fetch('https://api.retellai.com/list-phone-numbers', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        Accept: 'application/json',
-      },
-    });
+    const { service_type, preferred_date, address_line } = req.body || {};
 
-    const ct = r.headers.get('content-type') || '';
-    const text = await r.text();
-    const body = ct.includes('application/json') ? JSON.parse(text) : text;
-
-    if (!r.ok) {
-      return res.status(r.status).json({
-        available: false,
-        error: 'Upstream error from Retell',
-        status: r.status,
-        bodyPreview: typeof body === 'string' ? body.slice(0, 400) : body,
-      });
+    // Always reply 200 so Retell doesn't break
+    if (!service_type || !preferred_date || !address_line) {
+      return res.status(200).json({ status: "unavailable", reason: "missing_fields" });
     }
 
-    const numbers = Array.isArray(body) ? body : (Array.isArray(body.phone_numbers) ? body.phone_numbers : []);
-    const trace = numbers.find(n => n.phone_number === TRACE_NUMBER);
+    const start = new Date(preferred_date);
+    if (Number.isNaN(start.getTime())) {
+      return res.status(200).json({ status: "unavailable", reason: "invalid_date" });
+    }
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour
 
-    if (!trace) {
-      return res.status(404).json({
-        available: false,
-        message: 'Trace number not found in Retell account',
-        found: numbers.map(n => n.phone_number),
-      });
+    // ---- Auth from envs (supports either full JSON or separate vars) ----
+    let clientEmail, privateKey;
+    if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      const sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      clientEmail = sa.client_email;
+      privateKey  = sa.private_key;
+    } else {
+      clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+      privateKey  = process.env.GOOGLE_PRIVATE_KEY;
+      if (privateKey && privateKey.includes("\\n")) privateKey = privateKey.replace(/\\n/g, "\n");
     }
 
-    return res.status(200).json({
-      available: true,
-      number: trace.phone_number,
-      agentBound: !!trace.outbound_agent_id,
-      agentId: trace.outbound_agent_id || null,
+    // Calendar ID from map or single var
+    let calendarId = process.env.GOOGLE_CALENDAR_ID || "";
+    try {
+      if (process.env.staff_to_calender) {
+        const map = JSON.parse(process.env.staff_to_calender); // e.g. { "Trace": "<id>@group.calendar.google.com" }
+        calendarId = map["Trace"] || calendarId;
+      }
+    } catch (_) {}
+
+    if (!clientEmail || !privateKey || !calendarId) {
+      return res.status(200).json({ status: "unavailable", reason: "missing_google_env" });
+    }
+
+    const auth = new google.auth.JWT(
+      clientEmail,
+      undefined,
+      privateKey,
+      ["https://www.googleapis.com/auth/calendar.readonly"]
+    );
+    const calendar = google.calendar({ version: "v3", auth });
+
+    // Use FreeBusy (most reliable)
+    const fb = await calendar.freebusy.query({
+      requestBody: {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        items: [{ id: calendarId }]
+      }
     });
-  } catch (err) {
-    return res.status(500).json({ available: false, error: err?.message || 'Unknown server error' });
+
+    const busy = (fb.data?.calendars?.[calendarId]?.busy || []).length > 0;
+    return res.status(200).json({ status: busy ? "unavailable" : "available" });
+  } catch (e) {
+    console.error("[checkAvailable] google error:", e?.response?.data || e);
+    return res.status(200).json({ status: "unavailable", reason: "google_error" });
   }
 }
