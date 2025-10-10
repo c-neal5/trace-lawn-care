@@ -4,8 +4,6 @@ import { google } from "googleapis";
 export default async function handler(req, res) {
   try {
     const { service_type, preferred_date, address_line } = req.body || {};
-
-    // Always reply 200 so Retell doesn't break
     if (!service_type || !preferred_date || !address_line) {
       return res.status(200).json({ status: "unavailable", reason: "missing_fields" });
     }
@@ -14,29 +12,20 @@ export default async function handler(req, res) {
     if (Number.isNaN(start.getTime())) {
       return res.status(200).json({ status: "unavailable", reason: "invalid_date" });
     }
-    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
 
-    // ---- Auth from envs (supports either full JSON or separate vars) ----
+    // Use full JSON env (preferred)
     let clientEmail, privateKey;
     if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
       const sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
       clientEmail = sa.client_email;
-      privateKey  = sa.private_key;
+      privateKey  = sa.private_key; // already has real newlines
     } else {
       clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-      privateKey  = process.env.GOOGLE_PRIVATE_KEY;
-      if (privateKey && privateKey.includes("\\n")) privateKey = privateKey.replace(/\\n/g, "\n");
+      privateKey  = (process.env.GOOGLE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
     }
 
-    // Calendar ID from map or single var
-    let calendarId = process.env.GOOGLE_CALENDAR_ID || "";
-    try {
-      if (process.env.staff_to_calender) {
-        const map = JSON.parse(process.env.staff_to_calender); // e.g. { "Trace": "<id>@group.calendar.google.com" }
-        calendarId = map["Trace"] || calendarId;
-      }
-    } catch (_) {}
-
+    const calendarId = process.env.GOOGLE_CALENDAR_ID;
     if (!clientEmail || !privateKey || !calendarId) {
       return res.status(200).json({ status: "unavailable", reason: "missing_google_env" });
     }
@@ -49,7 +38,7 @@ export default async function handler(req, res) {
     );
     const calendar = google.calendar({ version: "v3", auth });
 
-    // Use FreeBusy (most reliable)
+    // Free/Busy check
     const fb = await calendar.freebusy.query({
       requestBody: {
         timeMin: start.toISOString(),
