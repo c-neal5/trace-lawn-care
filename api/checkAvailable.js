@@ -1,11 +1,15 @@
+// /api/checkAvailable.js
 import { google } from "googleapis";
 
-const getArgs = (req) => (req.body?.args || req.body?.arguments || req.body?.parameters || req.body?.data || req.body || {});
+const getArgs = (req) =>
+  req.body?.args || req.body?.arguments || req.body?.parameters || req.body?.data || req.body || {};
 
 export default async function handler(req, res) {
   try {
-    const { service_type, preferred_date, address_line } = getArgs(req);
+    const a = getArgs(req);
+    const { service_type, preferred_date, address_line } = a || {};
 
+    // Basic guards (always 200 to keep Retell flowing)
     if (!service_type || !preferred_date || !address_line) {
       return res.status(200).json({ status: "unavailable", reason: "missing_fields" });
     }
@@ -14,14 +18,13 @@ export default async function handler(req, res) {
     if (Number.isNaN(start.getTime())) {
       return res.status(200).json({ status: "unavailable", reason: "invalid_date" });
     }
-    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour
 
-    // creds from full JSON
+    // Auth via full JSON (recommended)
     const sa = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "{}");
     const clientEmail = sa.client_email;
     const privateKey  = sa.private_key;
-
-    const calendarId = process.env.GOOGLE_CALENDAR_ID; // explicit env
+    const calendarId  = process.env.GOOGLE_CALENDAR_ID;
 
     const hasCreds = !!clientEmail && !!privateKey;
     const hasCal   = !!calendarId;
@@ -31,13 +34,20 @@ export default async function handler(req, res) {
       return res.status(200).json({ status: "unavailable", reason: "missing_google_env" });
     }
 
-    const auth = new google.auth.JWT(clientEmail, undefined, privateKey, [
-      "https://www.googleapis.com/auth/calendar.readonly",
-    ]);
+    const auth = new google.auth.JWT(
+      clientEmail,
+      undefined,
+      privateKey,
+      ["https://www.googleapis.com/auth/calendar.readonly"]
+    );
     const calendar = google.calendar({ version: "v3", auth });
 
     const fb = await calendar.freebusy.query({
-      requestBody: { timeMin: start.toISOString(), timeMax: end.toISOString(), items: [{ id: calendarId }] },
+      requestBody: {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        items: [{ id: calendarId }]
+      }
     });
 
     const busy = (fb.data?.calendars?.[calendarId]?.busy || []).length > 0;
