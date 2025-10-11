@@ -1,47 +1,28 @@
-// api/sms.js
-async function readJson(req) {
-  try {
-    if (req.body) return typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+// /api/sms.js
+import twilio from "twilio";
+
+const sid = process.env.TWILIO_SID;
+const token = process.env.TWILIO_TOKEN;
+const FROM = process.env.FROM_NUMBER;
+
+const client = sid && token ? twilio(sid, token) : null;
+
+export async function sendSms(to, body) {
+  if (!client) throw new Error("Twilio client not initialized (check TWILIO_SID/TWILIO_TOKEN)");
+  if (!FROM) throw new Error("FROM_NUMBER not set");
+  if (!to) throw new Error("Missing destination phone number");
+  return client.messages.create({ to, from: FROM, body });
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
-
-  const payload = await readJson(req);
-  const body = payload.body;
-  const To = (payload.to || process.env.OWNER_NUMBER || "").trim();
-
-  if (!body || !To) {
-    return res.status(400).json({ ok: false, error: "Missing body or To (check OWNER_NUMBER env var)" });
-  }
-
+  // optional direct SMS endpoint if you ever POST here
+  if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
   try {
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${process.env.TWILIO_SID}/Messages.json`;
-    const auth = Buffer.from(`${process.env.TWILIO_SID}:${process.env.TWILIO_TOKEN}`).toString("base64");
-
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${auth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        To,
-        From: process.env.FROM_NUMBER,
-        Body: body,
-      }),
-    });
-
-    const data = await resp.json();
-    if (!resp.ok) return res.status(resp.status).json({ ok: false, error: data?.message || "Twilio error", twilio: data });
-    return res.json({ ok: true, sid: data.sid });
+    const { to, body } = req.body || {};
+    const msg = await sendSms(to, body);
+    res.status(200).json({ ok: true, sid: msg.sid });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message });
+    console.error(e);
+    res.status(200).json({ ok: false, message: e?.message || "sms_failed" });
   }
 }
