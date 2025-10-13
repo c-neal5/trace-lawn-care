@@ -1,46 +1,42 @@
+# Commercial Property Solutions | Trace Lawn Care Backend  
+(Powered by Prime Pilot Agents)
 
-# Ace's Lawn Care — Demo Backend (Retell + Vercel)
+This repository contains the production backend for the Trace Lawn Care AI Booking Assistant, built and managed by Commercial Property Solutions using the Prime Pilot Agents automation framework.
 
-This is a **safe demo** backend for your Retell agent. No real Google Calendar or SMS calls.
-It returns **mock availability**, **fake bookings**, and a **no-op owner notify** endpoint.
-Optionally supports **Vercel KV** for customer memory in the demo.
+It connects the Retell AI assistant to Google Calendar and Twilio, enabling real-time scheduling, confirmation texts, and automated appointment management.
 
-## Endpoints
-- `POST /api/availability.search` — returns 3 nice-looking slots (mock).
-- `POST /api/booking.create` — "confirms" a booking with a fake `booking_id` and logs the owner SMS.
-- `POST /api/owner.notify` — logs the message that would be sent to Ace.
-- `POST /api/memory.get` — (optional) fetch demo customer profile from KV.
-- `POST /api/memory.upsert` — (optional) upsert demo customer profile in KV.
-- `GET  /api/demo.seed` — (optional) preload 2 fake customer profiles.
-- `GET  /api/demo.reset` — (optional) clear the 2 fake profiles.
+---
 
-## Quick Start (Local folder -> GitHub -> Vercel)
-1) **Unzip** this folder somewhere on your Mac.
-2) In Terminal, `cd` into the folder and run:
-   ```bash
-   npm install
-   ```
-3) Create a new GitHub repo (or use yours), then:
-   ```bash
-   git init
-   git add .
-   git commit -m "initial demo backend"
-   git branch -M main
-   git remote add origin <YOUR_GITHUB_REPO_URL>
-   git push -u origin main
-   ```
-4) In **Vercel**, click **New Project** → import your repo.
-5) Add Environment Variables (for demo you only need):
-   - `TIMEZONE = America/Chicago`
-   - (optional memory) KV env vars from Vercel → Storage → KV
-6) Deploy. You'll get a domain like: `https://<your-app>.vercel.app`
+## Overview
 
-## Retell Tool URLs (set Method = POST)
-- `availability_search` → `https://<your-app>.vercel.app/api/availability.search`
-- `booking_create`      → `https://<your-app>.vercel.app/api/booking.create`
-- `owner_notify`        → `https://<your-app>.vercel.app/api/owner.notify`
-- (optional) `memory_get`   → `/api/memory.get`
-- (optional) `memory_upsert`→ `/api/memory.upsert`
+This backend handles:
+- Real-time Google Calendar integration to check staff availability
+- Appointment creation, rescheduling, and cancellation
+- SMS notifications to customers and the business owner via Twilio
+- Serverless deployment on Vercel for scalability
+- Secure credential storage using environment variables
 
-## Notes
-- This is DEMO ONLY. In production, swap these endpoints for ones that hit Google Calendar and Twilio.
+This is the first live deployment under the Commercial Property Solutions automation framework for property-service businesses.
+
+---
+
+## API Endpoints
+
+| Endpoint | Description |
+|-----------|--------------|
+| `POST /api/availability` | Checks staff availability and suggests open slots |
+| `POST /api/book` | Books an appointment and syncs it to Google Calendar |
+| `POST /api/sms` | Sends text notifications using Twilio |
+| `POST /api/modify` | Reschedules or cancels existing appointments |
+| `POST /api/owner.notify` | Sends the business owner booking alerts |
+| `GET /api/memory.get` | Retrieves stored client information (optional) |
+| `POST /api/memory.upsert` | Updates or saves client information (optional) |
+
+---
+
+## Setup Instructions
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/c-neal5/trace-lawn-care.git
+cd trace-lawn-care
